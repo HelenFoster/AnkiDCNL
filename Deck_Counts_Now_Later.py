@@ -18,9 +18,7 @@ Formatted as "cards (reps)" if the numbers are different
 
 Adds a "Buried" column to show the number of buried cards.
 
-The table does not auto-refresh:
- you can update the times/counts by clicking on "Decks" above the table.
-TODO: Trigger a table refresh once per minute?
+Triggers a refresh every 30 seconds. (Originally every 10 minutes.)
 """
 
 import time
@@ -28,7 +26,7 @@ from aqt.deckbrowser import DeckBrowser
 from aqt.qt import *
 from aqt.utils import downArrow
 from anki.utils import intTime
-import aqt
+from aqt import mw
 
 class DeckNode:
     "A node in the new more advanced deck tree."
@@ -176,5 +174,25 @@ def deckRow(self, node, depth, cnt):
     buf += self._renderDeckTree(children, depth+1)
     return buf
 
+def refreshDoNothing(self):
+    pass
+
+#based on Anki 2.0.45 aqt/main.py AnkiQt.onRefreshTimer
+def onRefreshTimer():
+    if mw.state == "deckBrowser":
+        mw.deckBrowser._renderPage()  #was refresh, but we're disabling that
+
+def addon_reloader_teardown():
+    refreshTimer.stop()
+
+#replace rendering functions in DeckBrowser with these new ones
 DeckBrowser._renderDeckTree = renderDeckTree
 DeckBrowser._deckRow = deckRow
+
+#disable refresh - only ever called from the 10-minute timer
+#(intercepting here because the 10-min timer can't be disabled by addon)
+DeckBrowser.refresh = refreshDoNothing
+
+#refresh every 30 seconds
+refreshTimer = mw.progress.timer(30*1000, onRefreshTimer, True)
+
