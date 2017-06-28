@@ -66,15 +66,14 @@ def chooseAddon():
         except:
             pass #skip modules that don't have the function
     chooser = AddonChooser(mw, modules)
-    result = chooser.exec_()
+    response = chooser.exec_()
     choice = chooser.choice.currentText()
-    if result == QDialog.Rejected:
-        pass
-    elif choice == "":
+    if response == QDialog.Rejected:
+        return
+    if actionRepeat is not None:
+        mw.form.menuTools.removeAction(actionRepeat)
         actionRepeat = None
-    else:
-        if actionRepeat is not None:
-            mw.form.menuTools.removeAction(actionRepeat)
+    if choice != "":
         newAction = QAction("Reload " + choice, mw)
         newAction.setShortcut(_("Ctrl+R"))
         def reloadTheAddon():
