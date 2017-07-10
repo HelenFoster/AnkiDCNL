@@ -174,16 +174,16 @@ def deckRow(self, node, depth, cnt):
     buf += self._renderDeckTree(children, depth+1)
     return buf
 
-def refreshDoNothing(self):
-    pass
-
 #based on Anki 2.0.45 aqt/main.py AnkiQt.onRefreshTimer
 def onRefreshTimer():
     if mw.state == "deckBrowser":
         mw.deckBrowser._renderPage()  #was refresh, but we're disabling that
 
-def addon_reloader_teardown():
-    refreshTimer.stop()
+#hooks for Addon Reloader
+def addon_reloader_before():
+    refreshTimer.stop()  #a new one will be created after reloading
+def addon_reloader_after():
+    onRefreshTimer()  #refresh right away after reloading
 
 #replace rendering functions in DeckBrowser with these new ones
 DeckBrowser._renderDeckTree = renderDeckTree
@@ -191,7 +191,7 @@ DeckBrowser._deckRow = deckRow
 
 #disable refresh - only ever called from the 10-minute timer
 #(intercepting here because the 10-min timer can't be disabled by addon)
-DeckBrowser.refresh = refreshDoNothing
+DeckBrowser.refresh = lambda self: None
 
 #refresh every 30 seconds
 refreshTimer = mw.progress.timer(30*1000, onRefreshTimer, True)
