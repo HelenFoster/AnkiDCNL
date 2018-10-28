@@ -21,12 +21,15 @@ Adds a "Buried" column to show the number of buried cards.
 Triggers a refresh every 30 seconds. (Originally every 10 minutes.)
 """
 
+import sys
 import time
 from aqt.deckbrowser import DeckBrowser
 from aqt.qt import *
 from aqt.utils import downArrow
 from anki.utils import intTime
 from aqt import mw
+
+anki21 = sys.version_info[0] >= 3
 
 class DeckNode:
     "A node in the new more advanced deck tree."
@@ -101,7 +104,7 @@ class DeckNode:
         buf += makeCell(cap(self.buriedCards), "#997700")
         return buf
 
-#based on Anki 2.0.36 aqt/deckbrowser.py DeckBrowser._renderDeckTree
+#based on Anki 2.0.36 and 2.1.5 aqt/deckbrowser.py DeckBrowser._renderDeckTree
 def renderDeckTree(self, nodes, depth=0):
     if not nodes:
         return ""
@@ -112,7 +115,10 @@ def renderDeckTree(self, nodes, depth=0):
         buf = "<tr><th colspan=5 align=left>%s</th>" % (_("Deck"),)
         for heading in headings:
             buf += "<th class=count>%s</th>" % (_(heading),)
-        buf += "<th class=count></th></tr>"
+        if anki21:
+            buf += "<th class=optscol></th></tr>"
+        else:
+            buf += "<th class=count></th></tr>"
         
         #convert nodes
         nodes = [DeckNode(self.mw, node) for node in nodes]
@@ -126,7 +132,7 @@ def renderDeckTree(self, nodes, depth=0):
         buf += self._topLevelDragRow()
     return buf
 
-#based on Anki 2.0.36 aqt/deckbrowser.py DeckBrowser._deckRow
+#based on Anki 2.0.36 and 2.1.5 aqt/deckbrowser.py DeckBrowser._deckRow
 def deckRow(self, node, depth, cnt):
     did = node.did
     children = node.children
@@ -153,23 +159,34 @@ def deckRow(self, node, depth, cnt):
     buf = "<tr class='%s' id='%d'>" % (klass, did)
     # deck link
     if children:
-        collapse = "<a class=collapse href='collapse:%d'>%s</a>" % (did, prefix)
+        if anki21:
+            action = """href=# onclick='pycmd("collapse:%d")' """
+        else:
+            action = "href='collapse:%d'"
+        collapse = "<a class=collapse %s>%s</a>" % (action % did, prefix)
     else:
         collapse = "<span class=collapse></span>"
     if deck['dyn']:
         extraclass = "filtered"
     else:
         extraclass = ""
+    if anki21:
+        action = """href=# onclick="pycmd('open:%d')" """
+    else:
+        action = "href='open:%d'"
     buf += """
-
-    <td class=decktd colspan=5>%s%s<a class="deck %s" href='open:%d'>%s</a></td>"""% (
-        indent(), collapse, extraclass, did, node.name)
+    <td class=decktd colspan=5>%s%s<a class="deck %s" %s>%s</a></td>"""% (
+        indent(), collapse, extraclass, action % did, node.name)
 
     buf += node.makeRow()
     
     # options
-    buf += "<td align=right class=opts>%s</td></tr>" % self.mw.button(
-        link="opts:%d"%did, name="<img valign=bottom src='qrc:/icons/gears.png'>"+downArrow())
+    if anki21:
+        buf += ("<td align=center class=opts><a onclick='pycmd(\"opts:%d\");'>"
+        "<img src='/_anki/imgs/gears.svg' class=gears></a></td></tr>" % did)
+    else:
+        buf += "<td align=right class=opts>%s</td></tr>" % self.mw.button(
+            link="opts:%d"%did, name="<img valign=bottom src='qrc:/icons/gears.png'>"+downArrow())
     # children
     buf += self._renderDeckTree(children, depth+1)
     return buf
