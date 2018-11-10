@@ -21,6 +21,7 @@ Adds a "Buried" column to show the number of buried cards.
 Triggers a refresh every 30 seconds. (Originally every 10 minutes.)
 """
 
+import math
 import sys
 import time
 from aqt.deckbrowser import DeckBrowser
@@ -37,7 +38,7 @@ class DeckNode:
         "Build the new deck tree or subtree (with extra info) by traversing the old one."
         self.mw = mw
         self.name, self.did, self.dueRevCards, self.dueLrnReps, self.newCards, oldChildren = oldNode
-        cutoff = intTime() + mw.col.conf['collapseTime']
+        self.cutoff = intTime() + mw.col.conf['collapseTime']
         today = mw.col.sched.today
         #dayCutoff = mw.col.sched.dayCutoff
         result = mw.col.db.first("""select
@@ -53,7 +54,7 @@ class DeckNode:
             sum(case when queue=-2 then 1 else 0 end),
             --lrnSoonest
             min(case when queue=1 then due else null end)
-            from cards where did=?""", cutoff, today, self.did)
+            from cards where did=?""", self.cutoff, today, self.did)
         self.lrnReps = result[0] or 0
         self.lrnCards = result[1] or 0
         self.dueLrnCards = result[2] or 0
@@ -84,8 +85,9 @@ class DeckNode:
             return cell % (colour, contents)
         due = self.dueRevCards + self.lrnDayCards + self.dueLrnCards
         if due == 0 and self.lrnSoonest is not None:
-            wait = (self.lrnSoonest - intTime()) / 60
-            due = "[" + str(wait) + "m]"
+            waitSecs = self.lrnSoonest - self.cutoff
+            waitMins = int(math.ceil(waitSecs / 60.0))
+            due = "[" + str(waitMins) + "m]"
         else:
             due = cap(due)
         laterCards = self.lrnCards - self.dueLrnCards
