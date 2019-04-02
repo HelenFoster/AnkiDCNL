@@ -1,7 +1,7 @@
-# Anki Addons
+# Deck Counts Now/Later
 
-Anki addons each contained in a single file.
+Anki addon to enhance the info displayed in the main deck tree.
 
-Check the comments at the top of each file for help and copyright/licence information.
+Check the comments at the top of the file for help and copyright/licence information.
 
 To download a single Python file from GitHub, first open the file for viewing, then right-click the "Raw" button and pick "Save link as..." (or the equivalent in your browser). Copy-and-paste is not recommended!
