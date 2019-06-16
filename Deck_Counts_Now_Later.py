@@ -134,7 +134,7 @@ def renderDeckTree(self, nodes, depth=0):
         buf += self._topLevelDragRow()
     return buf
 
-#based on Anki 2.0.36 and 2.1.15 aqt/deckbrowser.py DeckBrowser._deckRow
+#based on Anki 2.0.36 and 2.1.13 aqt/deckbrowser.py DeckBrowser._deckRow
 def deckRow(self, node, depth, cnt):
     did = node.did
     children = node.children
