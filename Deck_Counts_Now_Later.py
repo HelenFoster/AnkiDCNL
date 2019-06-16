@@ -134,7 +134,7 @@ def renderDeckTree(self, nodes, depth=0):
         buf += self._topLevelDragRow()
     return buf
 
-#based on Anki 2.0.36 and 2.1.5 aqt/deckbrowser.py DeckBrowser._deckRow
+#based on Anki 2.0.36 and 2.1.15 aqt/deckbrowser.py DeckBrowser._deckRow
 def deckRow(self, node, depth, cnt):
     did = node.did
     children = node.children
@@ -162,7 +162,7 @@ def deckRow(self, node, depth, cnt):
     # deck link
     if children:
         if anki21:
-            action = """href=# onclick='pycmd("collapse:%d")' """
+            action = """href=# onclick='return pycmd("collapse:%d")' """
         else:
             action = "href='collapse:%d'"
         collapse = "<a class=collapse %s>%s</a>" % (action % did, prefix)
@@ -173,7 +173,7 @@ def deckRow(self, node, depth, cnt):
     else:
         extraclass = ""
     if anki21:
-        action = """href=# onclick="pycmd('open:%d')" """
+        action = """href=# onclick="return pycmd('open:%d')" """
     else:
         action = "href='open:%d'"
     buf += """
@@ -184,7 +184,7 @@ def deckRow(self, node, depth, cnt):
     
     # options
     if anki21:
-        buf += ("<td align=center class=opts><a onclick='pycmd(\"opts:%d\");'>"
+        buf += ("<td align=center class=opts><a onclick='return pycmd(\"opts:%d\");'>"
         "<img src='/_anki/imgs/gears.svg' class=gears></a></td></tr>" % did)
     else:
         buf += "<td align=right class=opts>%s</td></tr>" % self.mw.button(
