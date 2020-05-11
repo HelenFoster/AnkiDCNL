@@ -1,3 +1,5 @@
+*pycache*
 *.pyc
 *.zip
 *.ankiaddon
+*/meta.json
