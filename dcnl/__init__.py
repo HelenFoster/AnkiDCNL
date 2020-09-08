@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # New code copyright Helen Foster
-# Original code from Anki, copyright Damien Elmes <anki@ichi2.net>
+# Original code from Anki, copyright Ankitects Pty Ltd and contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
 """
@@ -25,18 +25,32 @@ Triggers a refresh every 30 seconds. (Originally every 10 minutes.)
 import math
 import sys
 import time
+from dataclasses import dataclass
 from aqt.deckbrowser import DeckBrowser
 from aqt.qt import *
 from aqt.utils import downArrow
 from anki.utils import intTime
+from anki.rsbackend import DeckTreeNode
 from aqt import mw
 
-class DeckNode:
+@dataclass
+class RenderDeckNodeContext:
+    current_deck_id: int
+
+class BetterDeckNode:
     "A node in the new more advanced deck tree."
-    def __init__(self, mw, oldNode):
+    def __init__(self, mw, oldNode: DeckTreeNode):
         "Build the new deck tree or subtree (with extra info) by traversing the old one."
         self.mw = mw
-        self.name, self.did, self.dueRevCards, self.dueLrnReps, self.newCards, oldChildren = oldNode
+        self.name = oldNode.name
+        self.deck_id = oldNode.deck_id
+        self.collapsed = oldNode.collapsed
+        self.level = oldNode.level
+        self.filtered = oldNode.filtered
+        self.dueRevCards = oldNode.review_count
+        self.dueLrnReps = oldNode.learn_count
+        self.newCards = oldNode.new_count
+        oldChildren = oldNode.children
         self.cutoff = intTime() + mw.col.conf['collapseTime']
         today = mw.col.sched.today
         #dayCutoff = mw.col.sched.dayCutoff
@@ -53,14 +67,14 @@ class DeckNode:
             sum(case when queue=-2 then 1 else 0 end),
             --lrnSoonest
             min(case when queue=1 then due else null end)
-            from cards where did=?""", self.cutoff, today, self.did)
+            from cards where did=?""", self.cutoff, today, self.deck_id)
         self.lrnReps = result[0] or 0
         self.lrnCards = result[1] or 0
         self.dueLrnCards = result[2] or 0
         self.lrnDayCards = result[3] or 0
         self.buriedCards = result[4] or 0
         self.lrnSoonest = result[5] #can be null
-        self.children = [DeckNode(mw, oldChild) for oldChild in oldChildren]
+        self.children = [BetterDeckNode(mw, oldChild) for oldChild in oldChildren]
         for child in self.children:
             self.lrnReps += child.lrnReps
             self.lrnCards += child.lrnCards
@@ -104,66 +118,49 @@ class DeckNode:
         buf += makeCell(cap(self.buriedCards), "buried-count") #buried-count doesn't exist now
         return buf
 
-#based on Anki 2.1.23 aqt/deckbrowser.py DeckBrowser._renderDeckTree
-def renderDeckTree(self, nodes, depth=0):
-    if not nodes:
-        return ""
-    if depth == 0:
-    
-        #new headings
-        headings = ["New", "Due", "Later", "Buried"]
-        buf = "<tr><th colspan=5 align=left>%s</th>" % (_("Deck"),)
-        for heading in headings:
-            buf += "<th class=count>%s</th>" % (_(heading),)
-        buf += "<th class=optscol></th></tr>"
-        
-        #convert nodes
-        nodes = [DeckNode(self.mw, node) for node in nodes]
+#based on Anki 2.1.33 aqt/deckbrowser.py DeckBrowser._renderDeckTree
+def renderDeckTree(self, top: DeckTreeNode) -> str:
+    #new headings
+    headings = ["New", "Due", "Later", "Buried"]
+    buf = "<tr><th colspan=5 align=start>%s</th>" % (_("Deck"),)
+    for heading in headings:
+        buf += "<th class=count>%s</th>" % (_(heading),)
+    buf += "<th class=optscol></th></tr>"
 
-        buf += self._topLevelDragRow()
-    else:
-        buf = ""
-    for node in nodes:
-        buf += self._deckRow(node, depth, len(nodes))
-    if depth == 0:
-        buf += self._topLevelDragRow()
+    buf += self._topLevelDragRow()
+
+    ctx = RenderDeckNodeContext(current_deck_id=self.mw.col.conf["curDeck"])
+
+    for child in top.children:
+        buf += self._render_deck_node(BetterDeckNode(self.mw, child), ctx)
+
     return buf
 
-#based on Anki 2.1.23 aqt/deckbrowser.py DeckBrowser._deckRow
-def deckRow(self, node, depth, cnt):
-    did = node.did
-    children = node.children
-    deck = self.mw.col.decks.get(did)
-    if did == 1 and cnt > 1 and not children:
-        # if the default deck is empty, hide it
-        if not self.mw.col.db.scalar("select 1 from cards where did = 1"):
-            return ""
-    # parent toggled for collapsing
-    for parent in self.mw.col.decks.parents(did):
-        if parent["collapsed"]:
-            buff = ""
-            return buff
-    prefix = "-"
-    if self.mw.col.decks.get(did)["collapsed"]:
+#based on Anki 2.1.33 aqt/deckbrowser.py DeckBrowser._render_deck_node
+def render_deck_node(self, node: BetterDeckNode, ctx: RenderDeckNodeContext) -> str:
+    if node.collapsed:
         prefix = "+"
+    else:
+        prefix = "-"
 
     def indent():
-        return "&nbsp;" * 6 * depth
+        return "&nbsp;" * 6 * (node.level - 1)
 
-    if did == self.mw.col.conf["curDeck"]:
+    if node.deck_id == ctx.current_deck_id:
         klass = "deck current"
     else:
         klass = "deck"
-    buf = "<tr class='%s' id='%d'>" % (klass, did)
+
+    buf = "<tr class='%s' id='%d'>" % (klass, node.deck_id)
     # deck link
-    if children:
+    if node.children:
         collapse = (
             "<a class=collapse href=# onclick='return pycmd(\"collapse:%d\")'>%s</a>"
-            % (did, prefix)
+            % (node.deck_id, prefix)
         )
     else:
         collapse = "<span class=collapse></span>"
-    if deck["dyn"]:
+    if node.filtered:
         extraclass = "filtered"
     else:
         extraclass = ""
@@ -174,19 +171,21 @@ def deckRow(self, node, depth, cnt):
         indent(),
         collapse,
         extraclass,
-        did,
+        node.deck_id,
         node.name,
     )
 
     buf += node.makeRow()
-    
+
     # options
     buf += (
         "<td align=center class=opts><a onclick='return pycmd(\"opts:%d\");'>"
-        "<img src='/_anki/imgs/gears.svg' class=gears></a></td></tr>" % did
+        "<img src='/_anki/imgs/gears.svg' class=gears></a></td></tr>" % node.deck_id
     )
     # children
-    buf += self._renderDeckTree(children, depth + 1)
+    if not node.collapsed:
+        for child in node.children:
+            buf += self._render_deck_node(child, ctx)
     return buf
 
 #based on Anki 2.0.45 aqt/main.py AnkiQt.onRefreshTimer
@@ -202,7 +201,7 @@ def addon_reloader_after():
 
 #replace rendering functions in DeckBrowser with these new ones
 DeckBrowser._renderDeckTree = renderDeckTree
-DeckBrowser._deckRow = deckRow
+DeckBrowser._render_deck_node = render_deck_node
 
 #refresh every 30 seconds
 refreshTimer = mw.progress.timer(30*1000, onRefreshTimer, True)
