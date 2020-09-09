@@ -87,10 +87,6 @@ class BetterDeckNode:
                 self.lrnSoonest = min(self.lrnSoonest, child.lrnSoonest)
     def makeRow(self):
         "Generate the HTML table cells for this row of the deck tree."
-        def cap(n, c=1000):
-            if n >= c:
-                return str(c) + "+"
-            return str(n)
         def makeCell(contents, klass):
             if contents == 0 or contents == "0":
                 klass = "zero-count"
@@ -99,23 +95,21 @@ class BetterDeckNode:
         if due == 0 and self.lrnSoonest is not None:
             waitSecs = self.lrnSoonest - self.cutoff
             waitMins = int(math.ceil(waitSecs / 60.0))
-            due = "[" + str(waitMins) + "m]"
-        else:
-            due = cap(due)
+            due = f"[{waitMins}m]"
         laterCards = self.lrnCards - self.dueLrnCards
         laterReps = self.lrnReps - self.dueLrnCards
         if laterReps == laterCards:
-            later = cap(laterReps)
+            later = laterReps
         elif laterCards == 0:
-            later = "(" + cap(laterReps) + ")"
+            later = f"({laterReps})"
         elif laterReps >= 1000:
-            later = cap(laterCards) + " (+)"
+            later = f"{laterCards} (+)"
         else:
-            later = str(laterCards) + " (" + str(laterReps) + ")"
-        buf  = makeCell(cap(self.newCards), "new-count")
+            later = f"{laterCards} ({laterReps})"
+        buf  = makeCell(self.newCards, "new-count")
         buf += makeCell(due, "review-count")
         buf += makeCell(later, "learn-count")
-        buf += makeCell(cap(self.buriedCards), "buried-count") #buried-count doesn't exist now
+        buf += makeCell(self.buriedCards, "buried-count") #buried-count doesn't exist now
         return buf
 
 #based on Anki 2.1.33 aqt/deckbrowser.py DeckBrowser._renderDeckTree
